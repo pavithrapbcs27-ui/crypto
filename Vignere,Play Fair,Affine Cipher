@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Cryptography Tool</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #eef2f3;
+    font-size: 16px;
+}
+.container {
+    width: 500px;
+    margin: 30px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px gray;
+}
+select, textarea, input, button {
+    width: 100%;
+    margin: 6px 0;
+    padding: 10px;
+    font-size: 16px;
+}
+button {
+    background: #0d6efd;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+.page {
+    display: none;
+}
+.steps {
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+    height: 180px;
+}
+</style>
+
+<script>
+function openPage(id) {
+    document.querySelectorAll(".page").forEach(p => p.style.display = "none");
+    if (id) document.getElementById(id).style.display = "block";
+}
+
+/* ---------------- VIGENERE ---------------- */
+function vEncrypt() {
+    let t = v_text.value.toUpperCase().replace(/[^A-Z]/g, "");
+    let k = v_key.value.toUpperCase();
+    let r = "", steps = "P  K  Pval Kval (P+K)%26\n";
+
+    for (let i = 0; i < t.length; i++) {
+        let p = t.charCodeAt(i) - 65;
+        let kv = k.charCodeAt(i % k.length) - 65;
+        let c = (p + kv) % 26;
+        r += String.fromCharCode(c + 65);
+        steps += `${t[i]}  ${k[i%k.length]}   ${p}    ${kv}      ${c}\n`;
+    }
+    v_result.value = r;
+    v_steps.value = steps;
+}
+
+function vDecrypt() {
+    let t = v_result.value.toUpperCase().replace(/[^A-Z]/g, "");
+    let k = v_key.value.toUpperCase();
+    let r = "", steps = "C  K  Cval Kval (C-K)%26\n";
+
+    for (let i = 0; i < t.length; i++) {
+        let c = t.charCodeAt(i) - 65;
+        let kv = k.charCodeAt(i % k.length) - 65;
+        let p = (c - kv + 26) % 26;
+        r += String.fromCharCode(p + 65);
+        steps += `${t[i]}  ${k[i%k.length]}   ${c}    ${kv}      ${p}\n`;
+    }
+    v_result.value = r.toLowerCase();
+    v_steps.value = steps;
+}
+
+/* ---------------- PLAYFAIR ---------------- */
+function pfMatrix(key) {
+    key = key.toUpperCase().replace(/J/g, "I");
+    let used = "", letters = key + "ABCDEFGHIKLMNOPQRSTUVWXYZ";
+    let m = [], k = 0;
+
+    for (let i = 0; i < 5; i++) {
+        m[i] = [];
+        for (let j = 0; j < 5; j++) {
+            while (used.includes(letters[k])) k++;
+            m[i][j] = letters[k];
+            used += letters[k++];
+        }
+    }
+    return m;
+}
+
+function findPos(m, ch) {
+    for (let i = 0; i < 5; i++)
+        for (let j = 0; j < 5; j++)
+            if (m[i][j] === ch) return [i, j];
+}
+
+function pEncrypt() {
+    let t = p_text.value.toUpperCase().replace(/J/g, "I").replace(/[^A-Z]/g, "");
+    let m = pfMatrix(p_key.value);
+    let r = "", steps = "Pair  Rule        Result\n";
+
+    for (let i = 0; i < t.length; i += 2) {
+        let a = t[i], b = t[i+1] || "X";
+        if (a === b) b = "X";
+
+        let [r1, c1] = findPos(m, a);
+        let [r2, c2] = findPos(m, b);
+
+        if (r1 === r2) {
+            let x = m[r1][(c1+1)%5], y = m[r2][(c2+1)%5];
+            r += x + y;
+            steps += `${a}${b}   Same Row    ${x}${y}\n`;
+        } else if (c1 === c2) {
+            let x = m[(r1+1)%5][c1], y = m[(r2+1)%5][c2];
+            r += x + y;
+            steps += `${a}${b}   Same Col    ${x}${y}\n`;
+        } else {
+            let x = m[r1][c2], y = m[r2][c1];
+            r += x + y;
+            steps += `${a}${b}   Rectangle  ${x}${y}\n`;
+        }
+    }
+    p_result.value = r;
+    p_steps.value = steps;
+}
+
+function pDecrypt() {
+    let t = p_result.value.toUpperCase().replace(/[^A-Z]/g, "");
+    let m = pfMatrix(p_key.value);
+    let r = "", steps = "Pair  Rule        Result\n";
+
+    for (let i = 0; i < t.length; i += 2) {
+        let a = t[i], b = t[i+1];
+        let [r1, c1] = findPos(m, a);
+        let [r2, c2] = findPos(m, b);
+
+        if (r1 === r2) {
+            let x = m[r1][(c1+4)%5], y = m[r2][(c2+4)%5];
+            r += x + y;
+            steps += `${a}${b}   Same Row    ${x}${y}\n`;
+        } else if (c1 === c2) {
+            let x = m[(r1+4)%5][c1], y = m[(r2+4)%5][c2];
+            r += x + y;
+            steps += `${a}${b}   Same Col    ${x}${y}\n`;
+        } else {
+            let x = m[r1][c2], y = m[r2][c1];
+            r += x + y;
+            steps += `${a}${b}   Rectangle  ${x}${y}\n`;
+        }
+    }
+    p_result.value = r.toLowerCase();
+    p_steps.value = steps;
+}
+
+/* ---------------- AFFINE ---------------- */
+function inv(a) {
+    for (let i = 1; i < 26; i++)
+        if (a * i % 26 === 1) return i;
+}
+
+function aEncrypt() {
+    let t = a_text.value.toUpperCase().replace(/[^A-Z]/g, "");
+    let a1 = +a_val.value, b1 = +b_val.value;
+    let r = "", steps = "P  Pval (a*p+b)%26  C\n";
+
+    for (let c of t) {
+        let p = c.charCodeAt(0) - 65;
+        let y = (a1 * p + b1) % 26;
+        r += String.fromCharCode(y + 65);
+        steps += `${c}   ${p}        ${y}        ${String.fromCharCode(y+65)}\n`;
+    }
+    a_result.value = r;
+    a_steps.value = steps;
+}
+
+function aDecrypt() {
+    let t = a_result.value.toUpperCase().replace(/[^A-Z]/g, "");
+    let a1 = +a_val.value, b1 = +b_val.value;
+    let ai = inv(a1);
+    let r = "", steps = "C  Cval a⁻¹(C-b)%26  P\n";
+
+    for (let c of t) {
+        let y = c.charCodeAt(0) - 65;
+        let p = (ai * (y - b1 + 26)) % 26;
+        r += String.fromCharCode(p + 65);
+        steps += `${c}   ${y}        ${p}        ${String.fromCharCode(p+65)}\n`;
+    }
+    a_result.value = r.toLowerCase();
+    a_steps.value = steps;
+}
+</script>
+</head>
+
+<body>
+<div class="container">
+<h2 align="center">Cryptography Tool</h2>
+
+<select onchange="openPage(this.value)">
+    <option value="">-- Select Cipher --</option>
+    <option value="vigenere">Vigenère Cipher</option>
+    <option value="playfair">Playfair Cipher</option>
+    <option value="affine">Affine Cipher</option>
+</select>
+
+<div id="vigenere" class="page">
+<textarea id="v_text" placeholder="plaintext"></textarea>
+<input id="v_key" placeholder="key">
+<button onclick="vEncrypt()">Encrypt</button>
+<button onclick="vDecrypt()">Decrypt</button>
+<textarea id="v_result" placeholder="result"></textarea>
+<textarea id="v_steps" class="steps" placeholder="Intermediate steps"></textarea>
+</div>
+
+<div id="playfair" class="page">
+<textarea id="p_text" placeholder="plaintext"></textarea>
+<input id="p_key" placeholder="key">
+<button onclick="pEncrypt()">Encrypt</button>
+<button onclick="pDecrypt()">Decrypt</button>
+<textarea id="p_result" placeholder="result"></textarea>
+<textarea id="p_steps" class="steps" placeholder="Intermediate steps"></textarea>
+</div>
+
+<div id="affine" class="page">
+<textarea id="a_text" placeholder="plaintext"></textarea>
+<input id="a_val" placeholder="a value">
+<input id="b_val" placeholder="b value">
+<button onclick="aEncrypt()">Encrypt</button>
+<button onclick="aDecrypt()">Decrypt</button>
+<textarea id="a_result" placeholder="result"></textarea>
+<textarea id="a_steps" class="steps" placeholder="Intermediate steps"></textarea>
+</div>
+
+</div>
+</body>
+</html>
