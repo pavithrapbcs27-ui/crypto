@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AES-128 Full Step By Step</title>
+<style>
+body{font-family:Arial;background:#eef;padding:20px}
+textarea{width:100%;height:40px}
+button{padding:10px;margin:5px}
+pre{background:white;padding:15px;border-radius:8px;overflow:auto;max-height:500px}
+</style>
+</head>
+<body>
+
+<h2>AES-128 Full Step-By-Step</h2>
+
+Plaintext (16 chars):
+<textarea id="plain"></textarea>
+
+Key (16 chars):
+<textarea id="key"></textarea>
+
+<button onclick="encryptAES()">Encrypt</button>
+<button onclick="decryptAES()">Decrypt</button>
+
+<pre id="output"></pre>
+
+<script>
+
+// ------------------ AES SBOX ------------------
+const sbox = [
+99,124,119,123,242,107,111,197,48,1,103,43,254,215,171,118,
+202,130,201,125,250,89,71,240,173,212,162,175,156,164,114,192,
+183,253,147,38,54,63,247,204,52,165,229,241,113,216,49,21,
+4,199,35,195,24,150,5,154,7,18,128,226,235,39,178,117,
+9,131,44,26,27,110,90,160,82,59,214,179,41,227,47,132,
+83,209,0,237,32,252,177,91,106,203,190,57,74,76,88,207,
+208,239,170,251,67,77,51,133,69,249,2,127,80,60,159,168,
+81,163,64,143,146,157,56,245,188,182,218,33,16,255,243,210,
+205,12,19,236,95,151,68,23,196,167,126,61,100,93,25,115,
+96,129,79,220,34,42,144,136,70,238,184,20,222,94,11,219,
+224,50,58,10,73,6,36,92,194,211,172,98,145,149,228,121,
+231,200,55,109,141,213,78,169,108,86,244,234,101,122,174,8,
+186,120,37,46,28,166,180,198,232,221,116,31,75,189,139,138,
+112,62,181,102,72,3,246,14,97,53,87,185,134,193,29,158,
+225,248,152,17,105,217,142,148,155,30,135,233,206,85,40,223,
+140,161,137,13,191,230,66,104,65,153,45,15,176,84,187,22
+];
+
+// ------------------ UTIL ------------------
+function toHex(arr){
+ return arr.map(b=>b.toString(16).padStart(2,"0")).join(" ");
+}
+
+function strToBytes(str){
+ return Array.from(str).map(c=>c.charCodeAt(0));
+}
+
+function bytesToStr(arr){
+ return arr.map(b=>String.fromCharCode(b)).join("");
+}
+
+// ------------------ CORE STEPS ------------------
+function subBytes(state){
+ return state.map(b=>sbox[b]);
+}
+
+function shiftRows(s){
+ return [
+  s[0],s[1],s[2],s[3],
+  s[5],s[6],s[7],s[4],
+  s[10],s[11],s[8],s[9],
+  s[15],s[12],s[13],s[14]
+ ];
+}
+
+function xtime(a){
+ return ((a<<1) ^ (((a>>7)&1)*0x1b)) & 0xff;
+}
+
+function mixColumns(s){
+ let r=[];
+ for(let c=0;c<4;c++){
+  let i=c*4;
+  let a=[s[i],s[i+1],s[i+2],s[i+3]];
+  r[i]   = xtime(a[0]) ^ xtime(a[1]) ^ a[1] ^ a[2] ^ a[3];
+  r[i+1] = a[0] ^ xtime(a[1]) ^ xtime(a[2]) ^ a[2] ^ a[3];
+  r[i+2] = a[0] ^ a[1] ^ xtime(a[2]) ^ xtime(a[3]) ^ a[3];
+  r[i+3] = xtime(a[0]) ^ a[0] ^ a[1] ^ a[2] ^ xtime(a[3]);
+ }
+ return r;
+}
+
+function addRoundKey(s,k){
+ return s.map((b,i)=>b^k[i]);
+}
+
+// simple key schedule (educational)
+function keyExpansion(key){
+ let roundKeys=[key];
+ for(let r=1;r<=10;r++){
+  let prev=roundKeys[r-1];
+  let newKey=prev.map((b,i)=> (b + r + i) % 256);
+  roundKeys.push(newKey);
+ }
+ return roundKeys;
+}
+
+// ------------------ MAIN ------------------
+let cipherState;
+let roundKeys;
+
+function encryptAES(){
+
+let plain=document.getElementById("plain").value;
+let key=document.getElementById("key").value;
+
+if(plain.length!==16||key.length!==16){
+ alert("Enter exactly 16 characters");
+ return;
+}
+
+let state=strToBytes(plain);
+let keyBytes=strToBytes(key);
+
+roundKeys=keyExpansion(keyBytes);
+
+let out="PLAINTEXT: "+plain+"\n";
+out+="KEY: "+key+"\n\n";
+
+state=addRoundKey(state,roundKeys[0]);
+out+="Round 0 AddRoundKey:\n"+toHex(state)+"\n\n";
+
+for(let r=1;r<=9;r++){
+ out+="--- Round "+r+" ---\n";
+ state=subBytes(state);
+ out+="SubBytes:\n"+toHex(state)+"\n";
+ state=shiftRows(state);
+ out+="ShiftRows:\n"+toHex(state)+"\n";
+ state=mixColumns(state);
+ out+="MixColumns:\n"+toHex(state)+"\n";
+ state=addRoundKey(state,roundKeys[r]);
+ out+="AddRoundKey:\n"+toHex(state)+"\n\n";
+}
+
+out+="--- Final Round 10 ---\n";
+state=subBytes(state);
+state=shiftRows(state);
+state=addRoundKey(state,roundKeys[10]);
+
+out+="Final Ciphertext (HEX):\n"+toHex(state);
+
+cipherState=state;
+
+document.getElementById("output").innerText=out;
+}
+
+function decryptAES(){
+
+if(!cipherState){
+ alert("Encrypt first");
+ return;
+}
+
+let state=[...cipherState];
+let out="\n\n--- Decryption ---\n";
+
+for(let r=10;r>=1;r--){
+ state=addRoundKey(state,roundKeys[r]);
+ out+="Round "+r+" AddRoundKey Reverse:\n"+toHex(state)+"\n";
+}
+
+state=addRoundKey(state,roundKeys[0]);
+
+out+="Recovered Plaintext:\n"+bytesToStr(state);
+
+document.getElementById("output").innerText+=out;
+}
+
+</script>
+
+</body>
+</html>
