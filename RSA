@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>RSA Step by Step (Full Steps)</title>
+<style>
+body{font-family:Arial;background:#eef;padding:20px}
+input,textarea{width:100%;padding:8px;margin:5px 0}
+button{padding:10px;margin:5px}
+pre{background:white;padding:15px;border-radius:8px;overflow:auto}
+</style>
+</head>
+<body>
+
+<h2>RSA Algorithm (Complete Step-by-Step)</h2>
+
+<label>Enter Prime p:</label>
+<input type="number" id="p">
+
+<label>Enter Prime q:</label>
+<input type="number" id="q">
+
+<label>Enter e (Prime):</label>
+<input type="number" id="e">
+
+<label>Enter Message (Text or Number):</label>
+<textarea id="msg"></textarea>
+
+<button onclick="encryptRSA()">Encrypt</button>
+<button onclick="decryptRSA()">Decrypt</button>
+
+<h3>Output:</h3>
+<pre id="output"></pre>
+
+<script>
+
+let n, phi, e, d;
+let cipherText = [];
+
+// ---------------- Fermat Test ----------------
+function isPrimeFermat(num){
+    if(num<=1) return false;
+    if(num<=3) return true;
+    let a = 2;
+    if(Math.pow(a,num-1)%num !== 1)
+        return false;
+    return true;
+}
+
+// ---------------- GCD with Steps ----------------
+function gcdSteps(a,b){
+    let steps="";
+    while(b!=0){
+        let q = Math.floor(a/b);
+        steps += a + " = " + b + " x " + q + " + " + (a%b) + "\n";
+        let temp=b;
+        b=a%b;
+        a=temp;
+    }
+    steps += "GCD = " + a + "\n\n";
+    return {gcd:a, steps:steps};
+}
+
+// ---------------- Extended Euclid with Steps ----------------
+function extendedEuclidSteps(a,b){
+
+    let old_r = a, r = b;
+    let old_s = 1, s = 0;
+    let old_t = 0, t = 1;
+
+    let steps = "Extended Euclidean Table:\n";
+    steps += "r\ts\tt\n";
+    steps += old_r + "\t" + old_s + "\t" + old_t + "\n";
+    steps += r + "\t" + s + "\t" + t + "\n";
+
+    while(r != 0){
+        let q = Math.floor(old_r / r);
+
+        let temp = r;
+        r = old_r - q*r;
+        old_r = temp;
+
+        temp = s;
+        s = old_s - q*s;
+        old_s = temp;
+
+        temp = t;
+        t = old_t - q*t;
+        old_t = temp;
+
+        steps += r + "\t" + s + "\t" + t + "\n";
+    }
+
+    steps += "\nSince ax + by = gcd\n";
+    steps += a + "(" + old_s + ") + " + b + "(" + old_t + ") = 1\n";
+    steps += "d = " + old_s + " mod " + b + "\n\n";
+
+    return {d:old_s, steps:steps};
+}
+
+// ---------------- Manual Binary Power ----------------
+function manualPower(base, exp, mod){
+
+    let output="";
+    let binary = exp.toString(2);
+    output += "Binary of " + exp + " = " + binary + "\n\n";
+
+    let powers=[];
+    let value = base % mod;
+
+    powers.push(value);
+    output += base + "^1 mod " + mod + " = " + value + "\n";
+
+    for(let i=1;i<binary.length;i++){
+        value = (value*value)%mod;
+        powers.push(value);
+        output += base + "^" + (2**i) + " mod " + mod + " = " + value + "\n";
+    }
+
+    let result=1;
+    let index=0;
+
+    output += "\nMultiplying required powers:\n";
+
+    for(let i=binary.length-1;i>=0;i--){
+        if(binary[i]=="1"){
+            result = (result*powers[index])%mod;
+            output += "Use power " + (2**index) + " → " + result + "\n";
+        }
+        index++;
+    }
+
+    return {result:result, steps:output};
+}
+
+// ---------------- ENCRYPT ----------------
+function encryptRSA(){
+
+    document.getElementById("output").textContent="";
+    let output="";
+
+    let p=parseInt(document.getElementById("p").value);
+    let q=parseInt(document.getElementById("q").value);
+    e=parseInt(document.getElementById("e").value);
+    let message=document.getElementById("msg").value;
+
+    // Prime check for p and q
+    if(!isPrimeFermat(p) || !isPrimeFermat(q)){
+        document.getElementById("output").textContent="p or q not prime";
+        return;
+    }
+
+    // ---------------- MAIN FERMAT PRIME CHECK FOR e ----------------
+    output+="Checking e using Fermat's Theorem:\n";
+    output+="If e is prime → 2^(e-1) mod e = 1\n\n";
+
+    if(e<=1){
+        output+="e ≤ 1 → Not Prime\n";
+        document.getElementById("output").textContent=output;
+        return;
+    }
+
+    let fermatCheck = manualPower(2, e-1, e);
+    output+=fermatCheck.steps;
+
+    if(fermatCheck.result != 1){
+        output+="Result ≠ 1 → e is NOT Prime\n";
+        document.getElementById("output").textContent=output;
+        return;
+    }
+
+    output+="Result = 1 → e is Prime (Fermat Passed)\n\n";
+    // ----------------------------------------------------------------
+
+    n=p*q;
+    phi=(p-1)*(q-1);
+
+    output+="STEP 1: n = "+n+"\n";
+    output+="STEP 2: phi = "+phi+"\n\n";
+
+    let gcdRes=gcdSteps(e,phi);
+    output+="GCD Steps:\n"+gcdRes.steps;
+
+    if(gcdRes.gcd!=1){
+        output+="gcd(e,phi) ≠ 1\n";
+        document.getElementById("output").textContent=output;
+        return;
+    }
+
+    let ee=extendedEuclidSteps(e,phi);
+    d=ee.d%phi;
+    if(d<0) d+=phi;
+
+    output+=ee.steps;
+    output+="Final d = "+d+"\n\n";
+
+    cipherText=[];
+    output+="Encryption:\n\n";
+
+    if(!isNaN(message)){
+        let m=parseInt(message);
+        let enc=manualPower(m,e,n);
+        cipherText.push(enc.result);
+        output+=enc.steps;
+        output+="Cipher = "+enc.result+"\n";
+    }
+    else{
+        for(let i=0;i<message.length;i++){
+            let ascii=message.charCodeAt(i);
+            output+=message[i]+" → ASCII "+ascii+"\n";
+            let enc=manualPower(ascii,e,n);
+            cipherText.push(enc.result);
+            output+=enc.steps;
+            output+="Cipher = "+enc.result+"\n\n";
+        }
+    }
+
+    document.getElementById("output").textContent=output;
+}
+
+// ---------------- DECRYPT ----------------
+function decryptRSA(){
+
+    let output="Decryption:\n\n";
+
+    if(cipherText.length==0){
+        document.getElementById("output").textContent="Encrypt First";
+        return;
+    }
+
+    let finalText="";
+
+    for(let i=0;i<cipherText.length;i++){
+        let dec=manualPower(cipherText[i],d,n);
+        output+=dec.steps;
+        output+="Recovered = "+dec.result+"\n\n";
+
+        if(dec.result>=32 && dec.result<=126)
+            finalText+=String.fromCharCode(dec.result);
+        else
+            finalText+=dec.result+" ";
+    }
+
+    output+="Original Message: "+finalText;
+    document.getElementById("output").textContent=output;
+}
+
+</script>
+</body>
+</html>
