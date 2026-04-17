@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Euler & Fermat Theorems</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .box { width: 500px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #333; text-align: center; margin-bottom: 20px; }
+        label { font-size: 0.9em; color: #666; }
+        input { width: 100%; padding: 10px; margin: 8px 0 18px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        pre { background: white; color: black; padding: 15px; border-radius: 6px; white-space: pre-wrap; font-size: 15px; line-height: 1.5; overflow-x: auto; }
+        .highlight { color: #fff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h2>Number Theory Calculator</h2>
+
+    <label>Base (a):</label>
+    <input type="number" id="a" placeholder="e.g., 3">
+    
+    <label>Modulus (n or p):</label>
+    <input type="number" id="n" placeholder="e.g., 7">
+
+    <button onclick="calculate()">Verify Theorems</button>
+
+    <pre id="output">Results will appear here...</pre>
+</div>
+
+<script>
+/* Modular Exponentiation: (base^exp) % mod */
+function modPow(base, exp, mod) {
+    let res = 1n;
+    let b = BigInt(base) % BigInt(mod);
+    let e = BigInt(exp);
+    let m = BigInt(mod);
+    
+    while (e > 0n) {
+        if (e % 2n === 1n) res = (res * b) % m;
+        b = (b * b) % m;
+        e = e / 2n;
+    }
+    return Number(res);
+}
+
+/* Greatest Common Divisor */
+function gcd(a, b) {
+    return b === 0 ? a : gcd(b, a % b);
+}
+
+/* Euler's Totient Function phi(n) */
+function getPhi(n) {
+    let result = n;
+    for (let i = 2; i * i <= n; i++) {
+        if (n % i === 0) {
+            while (n % i === 0) n /= i;
+            result -= result / i;
+        }
+    }
+    if (n > 1) result -= result / n;
+    return result;
+}
+
+/* Primality check for Fermat's context */
+function isPrime(n) {
+    if (n < 2) return false;
+    for (let i = 2; i * i <= n; i++) {
+        if (n % i === 0) return false;
+    }
+    return true;
+}
+
+function calculate() {
+    const a = parseInt(document.getElementById("a").value);
+    const n = parseInt(document.getElementById("n").value);
+    const out = document.getElementById("output");
+
+    if (isNaN(a) || isNaN(n) || n <= 0) {
+        out.textContent = "Error: Please enter valid positive integers.";
+        return;
+    }
+
+    const commonDiv = gcd(a, n);
+    const phi = getPhi(n);
+    const isNPrime = isPrime(n);
+    
+    let text = `INPUTS: a = ${a}, n = ${n}\n`;
+    text += `GCD(${a}, ${n}) = ${commonDiv}\n`;
+    text += `φ(${n}) = ${phi}\n\n`;
+
+    // --- EULER'S THEOREM ---
+    text += `[ EULER'S THEOREM ]\n`;
+    text += `Formula: a^φ(n) ≡ 1 (mod n)\n`;
+    if (commonDiv === 1) {
+        const eulerRes = modPow(a, phi, n);
+        text += `Calculation: ${a}^${phi} mod ${n} = ${eulerRes}\n`;
+        text += `Status: Verified (a and n are coprime)\n\n`;
+    } else {
+        text += `Status: NOT APPLICABLE (gcd must be 1)\n\n`;
+    }
+
+    // --- FERMAT'S LITTLE THEOREM ---
+    text += `[ FERMAT'S LITTLE THEOREM ]\n`;
+    text += `Formula: a^(p-1) ≡ 1 (mod p)\n`;
+    if (isNPrime) {
+        if (a % n !== 0) {
+            const fermatRes = modPow(a, n - 1, n);
+            text += `Calculation: ${a}^(${n}-1) mod ${n} = ${fermatRes}\n`;
+            text += `Status: Verified (n is prime and doesn't divide a)\n`;
+        } else {
+            text += `Status: INVALID (a is a multiple of p)\n`;
+        }
+    } else {
+        text += `Status: NOT APPLICABLE (Modulus ${n} is not prime)\n`;
+    }
+
+    out.textContent = text;
+}
+</script>
+
+</body>
+</html>
