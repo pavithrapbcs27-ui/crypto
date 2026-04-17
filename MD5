@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MD5 Visualizer with Intermediate Steps</title>
+    <style>
+        :root { --primary: #3498db; --dark: #2c3e50; --success:white; --bg: #f4f7f6; --accent: #e67e22; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .input-box { display: flex; gap: 10px; margin-bottom: 25px; }
+        input { flex: 1; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
+        button { padding: 15px 25px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .step-card { background: #fff; border-left: 5px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        /* Style for intermediate steps */
+        .intermediate { border-left-color: var(--accent); background: #fffef9; }
+        .step-card h4 { margin: 0 0 5px 0; font-size: 12px; color: var(--dark); text-transform: uppercase; }
+        .step-card p { margin: 0; font-family: monospace; font-size: 13px; word-break: break-all; background: #f9f9f9; padding: 8px; }
+        .result-area { margin-top: 30px; padding: 20px; background: var(--dark); color: var(--success); border-radius: 10px; text-align: center; }
+        #finalHash { font-size: 24px; font-weight: bold; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header style="text-align: center; margin-bottom: 20px;">
+        <h1>MD5 Visualizer</h1>
+        <p>Interactive step-by-step hashing with intermediate rounds</p>
+    </header>
+
+    <div class="input-box">
+        <input type="text" id="userInput" placeholder="Enter text..." value="hello">
+        <button onclick="visualizeMD5()">Generate Hash</button>
+    </div>
+
+    <div id="stepsOutput"></div>
+
+    <div class="result-area">
+        <h2 style="color: white; font-size: 16px; margin-bottom: 10px;">Final MD5 Digest</h2>
+        <div id="finalHash">-</div>
+    </div>
+</div>
+
+<script>
+    function leftRotate(x, c) {
+        return (x << c) | (x >>> (32 - c));
+    }
+
+    function toBinary(str) {
+        return str.split('').map(char => char.charCodeAt(0).toString(2).padStart(8, '0')).join('');
+    }
+
+    function visualizeMD5() {
+        const message = document.getElementById('userInput').value;
+        const stepsDiv = document.getElementById('stepsOutput');
+        const hashDiv = document.getElementById('finalHash');
+        
+        stepsDiv.innerHTML = ""; // Clear output
+        
+        // 1. Initial Processing
+        let binary = toBinary(message);
+        addStep("Step 1: Binary Conversion", binary);
+
+        // 2. Padding logic
+        let padded = binary + "1";
+        while (padded.length % 512 !== 448) padded += "0";
+        addStep("Step 2: Padding (1 + Zeros)", padded);
+
+        // 3. Append Length (64-bit)
+        let bitLen = (binary.length).toString(2).padStart(64, '0');
+        padded += bitLen;
+        addStep("Step 3: Append 64-bit Length", bitLen);
+
+        // 4. Constants & Registers
+        let A = 0x67452301, B = 0xEFCDAB89, C = 0x98BADCFE, D = 0x10325476;
+        const K = Array.from({length: 64}, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296));
+        const S = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+                   5,  9, 14, 20, 5,  9, 14, 20, 5,  9, 14, 20, 5,  9, 14, 20,
+                   4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+                   6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
+
+        // 5. Hash Calculation
+        let M = [];
+        for(let i=0; i<16; i++) M[i] = parseInt(padded.substr(i*32, 32), 2) || 0;
+
+        for (let i = 0; i < 64; i++) {
+            let f, g;
+            if (i < 16) { f = (B & C) | (~B & D); g = i; }
+            else if (i < 32) { f = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+            else if (i < 48) { f = B ^ C ^ D; g = (3 * i + 5) % 16; }
+            else { f = C ^ (B | ~D); g = (7 * i) % 16; }
+
+            let temp = (A + f + K[i] + M[g]) | 0;
+            A = D; D = C; C = B;
+            B = (B + leftRotate(temp, S[i])) | 0;
+
+            // INTERMEDIATE STEPS: Capture state after each of the 4 rounds
+            if ((i + 1) % 16 === 0) {
+                let roundNum = (i + 1) / 16;
+                addStep(`Round ${roundNum} Complete (Iteration ${i+1})`, 
+                    `A: ${A.toString(16)} | B: ${B.toString(16)} | C: ${C.toString(16)} | D: ${D.toString(16)}`, 
+                    true);
+            }
+        }
+
+        const formatHex = (num) => {
+            const hex = (num >>> 0).toString(16).padStart(8, '0');
+            return hex.match(/../g).reverse().join('');
+        };
+
+        const finalResult = formatHex(A) + formatHex(B) + formatHex(C) + formatHex(D);
+        hashDiv.innerText = finalResult;
+        addStep("Final Step: Result Generated", "Hash: " + finalResult);
+    }
+
+    // Modified helper function to handle intermediate styling
+    function addStep(title, content, isIntermediate = false) {
+        const stepsDiv = document.getElementById('stepsOutput');
+        const card = document.createElement('div');
+        card.className = 'step-card' + (isIntermediate ? ' intermediate' : '');
+        card.innerHTML = `<h4>${title}</h4><p>${content}</p>`;
+        stepsDiv.appendChild(card);
+    }
+</script>
+
+</body>
+</html>
