@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Diffie Hellman Full Steps</title>
+
+<style>
+
+body
+{
+    font-family: Arial;
+    background:#eef2ff;
+    padding:30px;
+}
+
+.container
+{
+    width:480px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px gray;
+}
+
+input
+{
+    width:100%;
+    padding:8px;
+    margin:6px 0;
+}
+
+button
+{
+    width:100%;
+    padding:10px;
+    background:#4CAF50;
+    color:white;
+    border:none;
+}
+
+.result
+{
+    margin-top:20px;
+    background:#f4f4f4;
+    padding:10px;
+    white-space:pre-line;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Diffie Hellman Calculator</h2>
+
+<label>XA</label>
+<input type="number" id="xa">
+
+<label>XB</label>
+<input type="number" id="xb">
+
+<label>q</label>
+<input type="number" id="q">
+
+<label>α</label>
+<input type="number" id="alpha">
+
+<button onclick="calculate()">Calculate</button>
+
+<div class="result" id="output"></div>
+
+</div>
+
+<script>
+
+function modPowSteps(base,exp,mod)
+{
+
+    let text=""
+    let powers=[]
+    let values=[]
+
+    let current=base%mod
+
+    powers.push(1)
+    values.push(current)
+
+    text+=base+"^1 mod "+mod+" = "+current+"\n"
+
+    let power=1
+
+    while(power*2<=exp)
+    {
+        power=power*2
+
+        current=(current*current)%mod
+
+        powers.push(power)
+        values.push(current)
+
+        text+=base+"^"+power+" mod "+mod+" = "+current+"\n"
+    }
+
+    text+="\nBinary = "+exp.toString(2)+"\n"
+
+    let result=1
+
+    text+="Selected powers\n"
+
+    for(let i=powers.length-1;i>=0;i--)
+    {
+        if(exp>=powers[i])
+        {
+            exp=exp-powers[i]
+
+            result=(result*values[i])%mod
+
+            text+=base+"^"+powers[i]+" mod "+mod+" = "+values[i]+"\n"
+        }
+    }
+
+    text+="Result = "+result+"\n\n"
+
+    return {result,text}
+
+}
+
+function checkPrimeFermat(q)
+{
+
+    let step=modPowSteps(2,q-1,q)
+
+    let text="--- Prime Check using Fermat ---\n"
+
+    text+="Check 2^(q-1) mod q\n"
+
+    text+=step.text
+
+    if(step.result==1)
+    {
+        text+="q is PRIME\n\n"
+        return {prime:true,text}
+    }
+    else
+    {
+        text+="q is NOT PRIME\n\n"
+        return {prime:false,text}
+    }
+
+}
+
+function checkPrimitive(alpha,q)
+{
+
+    let text="--- Primitive Root Check ---\n"
+
+    let set=new Set()
+
+    for(let i=1;i<=q-1;i++)
+    {
+
+        let r=modPowSteps(alpha,i,q).result
+
+        text+=alpha+"^"+i+" mod "+q+" = "+r+"\n"
+
+        if(set.has(r))
+        {
+            text+="Repeated value found → NOT primitive root\n\n"
+            return {ok:false,text}
+        }
+
+        set.add(r)
+    }
+
+    text+="All residues unique → Primitive Root\n\n"
+
+    return {ok:true,text}
+
+}
+
+function calculate()
+{
+
+    let xa=parseInt(document.getElementById("xa").value)
+    let xb=parseInt(document.getElementById("xb").value)
+    let q=parseInt(document.getElementById("q").value)
+    let alpha=parseInt(document.getElementById("alpha").value)
+
+    let out=document.getElementById("output")
+
+    let resultText=""
+
+    let primeCheck=checkPrimeFermat(q)
+
+    resultText+=primeCheck.text
+
+    if(!primeCheck.prime)
+    {
+        out.innerText=resultText
+        return
+    }
+
+    let primitiveCheck=checkPrimitive(alpha,q)
+
+    resultText+=primitiveCheck.text
+
+    if(!primitiveCheck.ok)
+    {
+        out.innerText=resultText
+        return
+    }
+
+    if(xa>=q || xb>=q)
+    {
+        resultText+="Error: XA and XB must be less than q\n"
+        out.innerText=resultText
+        return
+    }
+
+    resultText+="--- YA Calculation ---\n"
+
+    let YA=modPowSteps(alpha,xa,q)
+
+    resultText+=YA.text
+
+    resultText+="--- YB Calculation ---\n"
+
+    let YB=modPowSteps(alpha,xb,q)
+
+    resultText+=YB.text
+
+    resultText+="--- KA Calculation ---\n"
+
+    let KA=modPowSteps(YB.result,xa,q)
+
+    resultText+=KA.text
+
+    resultText+="--- KB Calculation ---\n"
+
+    let KB=modPowSteps(YA.result,xb,q)
+
+    resultText+=KB.text
+
+    out.innerText=resultText
+
+}
+
+</script>
+
+</body>
+</html>
